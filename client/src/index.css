@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --jt-orange: #F26522;
+  --jt-orange-dark: #D4521A;
+  --jt-orange-light: #FFE7D8;
+  --jt-blue: #1B3A6B;
+  --jt-blue-dark: #102449;
+  --jt-blue-light: #E8EFFA;
+  --accent-green: #16A34A;
+  --accent-green-light: #DCFCE7;
+  --accent-yellow: #FACC15;
+  --accent-red: #DC2626;
+  --bg: #F7F8FB;
+  --surface: #FFFFFF;
+  --border: #E5E7EB;
+  --text: #0F172A;
+  --text-muted: #64748B;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Animations from prototype ---- */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.screen-enter { animation: fadeUp .3s ease; }
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(242,101,34,.6); }
+  70%  { box-shadow: 0 0 0 30px rgba(242,101,34,0); }
+  100% { box-shadow: 0 0 0 0 rgba(242,101,34,0); }
+}
+.mic-pulse { animation: pulse 1.4s infinite; }
+
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wave {
+  0%, 100% { height: 8px; }
+  50%      { height: 32px; }
+}
+
+/* Print: only show the offer letter, hide topbar / nav / buttons */
+@media print {
+  body { background: white; }
+  header, nav, .print\:hidden { display: none !important; }
+  main { padding: 0 !important; max-width: 100% !important; }
+}
+.wave { display: inline-flex; gap: 4px; align-items: center; height: 36px; }
+.wave span {
+  display: inline-block;
+  width: 4px;
+  height: 12px;
+  background: var(--jt-orange);
+  border-radius: 2px;
+  animation: wave 1s infinite ease-in-out;
+}
+.wave span:nth-child(2) { animation-delay: .1s; }
+.wave span:nth-child(3) { animation-delay: .2s; }
+.wave span:nth-child(4) { animation-delay: .3s; }
+.wave span:nth-child(5) { animation-delay: .4s; }

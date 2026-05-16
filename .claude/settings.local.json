@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "PowerShell(npm --version)",
+      "PowerShell(node --version)",
+      "Bash(echo \"---root exit:$?---\")",
+      "Bash(echo \"---client exit:$?---\")",
+      "Bash(echo \"---server exit:$?---\")"
+    ]
+  }
+}
