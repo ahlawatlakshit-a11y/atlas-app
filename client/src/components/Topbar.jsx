@@ -1,18 +1,24 @@
 import { NavLink, Link } from 'react-router-dom';
 import { useFlow } from '../lib/flowStore.jsx';
 
-const navItems = [
+const BASE_NAV = [
   { to: '/', label: 'Home', end: true },
   { to: '/jd', label: 'Recruiter' },
   { to: '/language', label: 'Voice Apply' },
   { to: '/whatsapp', label: 'WhatsApp' },
   { to: '/referral', label: 'Referral' },
-  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/dashboard', label: 'Pipeline' },
 ];
 
 export default function Topbar() {
-  const { state, setRecruiterMode, toast } = useFlow();
-  const { recruiterMode, recruiterId } = state;
+  const { state, setRecruiterMode, loginAsManager, logoutManager, toast } = useFlow();
+  const { recruiterMode, recruiterId, managerMode } = state;
+
+  // Manager-only nav items append when logged in
+  const navItems = [
+    ...BASE_NAV,
+    ...(managerMode ? [{ to: '/manager', label: '👔 Manager' }] : []),
+  ];
 
   function toggleFieldMode() {
     if (recruiterMode) {
@@ -25,6 +31,21 @@ export default function Topbar() {
       }
       setRecruiterMode(true, id);
       toast(`📍 Field mode on · ${id}`);
+    }
+  }
+
+  function toggleManagerLogin() {
+    if (managerMode) {
+      logoutManager();
+      toast('👔 Logged out of Manager view');
+      return;
+    }
+    const pin = typeof window !== 'undefined' ? window.prompt('Manager PIN (4 digits):') : null;
+    if (pin == null) return; // cancelled
+    if (loginAsManager(pin)) {
+      toast('👔 Manager view unlocked');
+    } else {
+      toast('❌ Wrong PIN — access denied');
     }
   }
 
@@ -63,6 +84,7 @@ export default function Topbar() {
             ))}
           </nav>
 
+          {/* Field mode pill */}
           <button
             onClick={toggleFieldMode}
             title={recruiterMode ? 'Click to turn off field mode' : 'Click to start field-recruitment mode'}
@@ -75,11 +97,25 @@ export default function Topbar() {
           >
             <span>{recruiterMode ? '📍' : '○'}</span>
             <span>
-              FIELD MODE {recruiterMode ? 'ON' : 'OFF'}
-              {recruiterMode && recruiterId && (
-                <span className="ml-1 font-semibold opacity-80">· {recruiterId}</span>
-              )}
+              FIELD {recruiterMode ? 'ON' : 'OFF'}
+              {recruiterMode && recruiterId && <span className="ml-1 font-semibold opacity-80">· {recruiterId}</span>}
             </span>
+          </button>
+
+          {/* Manager login pill */}
+          <button
+            onClick={toggleManagerLogin}
+            title={managerMode ? 'Click to log out of Manager view' : 'Enter PIN to access Manager analytics'}
+            className={[
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold border transition-colors',
+              managerMode
+                ? 'text-white border-transparent'
+                : 'bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-jt-blue',
+            ].join(' ')}
+            style={managerMode ? { background: 'linear-gradient(135deg, var(--jt-blue), var(--jt-blue-dark))' } : undefined}
+          >
+            <span>{managerMode ? '👔' : '🔒'}</span>
+            <span>{managerMode ? 'MANAGER · LOGOUT' : 'MANAGER LOGIN'}</span>
           </button>
         </div>
       </div>

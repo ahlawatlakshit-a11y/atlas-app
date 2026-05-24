@@ -28,7 +28,8 @@ function statusPillClass(status) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { update, toast } = useFlow();
+  const { state, update, toast } = useFlow();
+  const { managerMode } = state;
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
@@ -105,6 +106,15 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {managerMode && (
+            <button
+              onClick={() => navigate('/manager')}
+              className="px-4 py-2.5 rounded-xl text-white font-semibold hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, var(--jt-blue), var(--jt-blue-dark))' }}
+            >
+              👔 Manager view ↑
+            </button>
+          )}
           <button
             onClick={() => navigate('/jd')}
             className="px-4 py-2.5 rounded-xl bg-transparent text-jt-blue border border-[var(--border)] font-semibold hover:bg-jt-blue-light"
