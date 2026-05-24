@@ -3,32 +3,29 @@ import { db } from '../db.js';
 
 const router = Router();
 
+const ALLOWED = [
+  'name', 'phone', 'source', 'lang',
+  'age', 'experience_years', 'distance_km',
+  'score', 'status', 'slot', 'job_id',
+  'recruiter_id', 'gps_lat', 'gps_lng', 'photo',
+  'role', 'hub',
+];
+
 router.get('/', (_req, res) => {
   const rows = db.prepare('SELECT * FROM candidates ORDER BY id DESC').all();
   res.json(rows);
 });
 
 router.post('/', (req, res) => {
-  const { name, phone, source, lang, age, experience_years, distance_km, score, status, slot, job_id } = req.body || {};
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const stmt = db.prepare(`
-    INSERT INTO candidates (name, phone, source, lang, age, experience_years, distance_km, score, status, slot, job_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const result = stmt.run(
-    name,
-    phone || null,
-    source || 'Direct',
-    lang || null,
-    age ?? null,
-    experience_years ?? null,
-    distance_km ?? null,
-    score ?? null,
-    status || 'Applied',
-    slot ?? null,
-    job_id ?? null
-  );
-  res.json({ id: result.lastInsertRowid });
+  const body = req.body || {};
+  if (!body.name) return res.status(400).json({ error: 'name required' });
+  const cols = ALLOWED.filter((k) => body[k] !== undefined);
+  const placeholders = cols.map(() => '?').join(', ');
+  const values = cols.map((k) => body[k]);
+  const stmt = db.prepare(`INSERT INTO candidates (${cols.join(', ')}) VALUES (${placeholders})`);
+  const result = stmt.run(...values);
+  const row = db.prepare('SELECT * FROM candidates WHERE id = ?').get(result.lastInsertRowid);
+  res.json(row);
 });
 
 router.get('/:id', (req, res) => {
@@ -38,8 +35,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.patch('/:id', (req, res) => {
-  const allowed = ['name', 'phone', 'source', 'lang', 'age', 'experience_years', 'distance_km', 'score', 'status', 'slot', 'job_id'];
-  const updates = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
+  const updates = Object.entries(req.body || {}).filter(([k]) => ALLOWED.includes(k));
   if (updates.length === 0) return res.status(400).json({ error: 'no valid fields to update' });
   const setClause = updates.map(([k]) => `${k} = ?`).join(', ');
   const values = updates.map(([, v]) => v);

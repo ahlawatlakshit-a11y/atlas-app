@@ -1,19 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFlow } from '../lib/flowStore.jsx';
-import { i18n, speechLangCode } from '../lib/i18n.js';
+import { ROLE_BY_ID, DEFAULT_ROLE_ID } from '../lib/roleCatalog.js';
+import { speechLangCode } from '../lib/i18n.js';
 import { api } from '../lib/api.js';
 
-// Per-question chip → typed-answer mapping (same logic as prototype's pickChip)
-const CHIP_VALUES = [
-  [22, 28, 35, 45],
-  [0, 1, 3, 5],
-  [3, 10, 20, 32],
-  ['yes', 'yes', 'partial', 'no'],
-  ['yes', 'yes', 'partial', 'no'],
-];
-
-const TITLES = { en: 'Voice Screening', hi: 'आवाज़ से स्क्रीनिंग', te: 'వాయిస్ స్క్రీనింగ్' };
 const TAP_HINTS = {
   en: 'Tap the mic to answer',
   hi: 'जवाब देने के लिए माइक दबाएँ',
@@ -29,7 +20,7 @@ function parseAnswer(text, expects) {
   }
   const digits = (t.match(/\d+/) || [])[0];
   if (digits) return parseInt(digits, 10);
-  const numWords = { one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, 'twenty five': 25, 'twenty eight': 28, thirty: 30 };
+  const numWords = { one: 1, two: 2, three: 3, four: 4, five: 5, ten: 10, twenty: 20, 'twenty five': 25, 'twenty six': 26, 'twenty eight': 28, thirty: 30 };
   for (const w of Object.keys(numWords)) if (t.includes(w)) return numWords[w];
   return text;
 }
@@ -38,7 +29,9 @@ export default function Screening() {
   const navigate = useNavigate();
   const { state, update } = useFlow();
   const lang = state.lang || 'en';
-  const pack = i18n[lang];
+  const roleDef = ROLE_BY_ID[state.role] || ROLE_BY_ID[DEFAULT_ROLE_ID];
+  const pack = roleDef.i18n[lang] || roleDef.i18n.en;
+  const chipValues = roleDef.chipMappings;
 
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState([null, null, null, null, null]);
@@ -54,7 +47,6 @@ export default function Screening() {
   const total = pack.questions.length;
   const canAdvance = answers[qIdx] !== null && !listening;
 
-  // TTS the question whenever it changes
   useEffect(() => {
     setTranscript('');
     setStatusText(TAP_HINTS[lang]);
@@ -87,17 +79,17 @@ export default function Screening() {
   }
 
   function pickChip(i, optLabel) {
-    setAnswer(CHIP_VALUES[qIdx][i], `(tapped) ${optLabel}`);
+    setAnswer(chipValues[qIdx][i], `(tapped) ${optLabel}`);
   }
 
   function runDemoVoice() {
     const demoText = pack.demoAnswers[qIdx];
     const mapped = pack.demoMapped[qIdx];
     setListening(true);
-    setStatusText(pack.listening);
+    setStatusText('Listening… speak now');
     setTranscript('');
     setTimeout(() => {
-      setStatusText(pack.processing);
+      setStatusText('Processing your answer…');
       let i = 0;
       typerRef.current = setInterval(() => {
         if (i < demoText.length) {
@@ -115,12 +107,7 @@ export default function Screening() {
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      // No Web Speech API — fall back to demo mode automatically
-      setDemoMode(true);
-      runDemoVoice();
-      return;
-    }
+    if (!SR) { setDemoMode(true); runDemoVoice(); return; }
     if (listening) return;
 
     const rec = new SR();
@@ -130,7 +117,7 @@ export default function Screening() {
     rec.continuous = false;
 
     setListening(true);
-    setStatusText(pack.listening);
+    setStatusText('Listening… speak now');
     setTranscript('');
     let finalText = '';
 
@@ -158,7 +145,6 @@ export default function Screening() {
         setStatusText('Did not catch that — try again');
       }
     };
-
     rec.start();
   }
 
@@ -168,14 +154,10 @@ export default function Screening() {
   }
 
   async function submitAnswer() {
-    if (qIdx < total - 1) {
-      setQIdx(qIdx + 1);
-      return;
-    }
-    // Last question — POST to backend
+    if (qIdx < total - 1) { setQIdx(qIdx + 1); return; }
     setSubmitting(true);
     try {
-      const result = await api.post('/screen', { lang, answers });
+      const result = await api.post('/screen', { lang, answers, role: state.role });
       update({
         answers,
         score: result.score,
@@ -189,10 +171,7 @@ export default function Screening() {
     }
   }
 
-  function skipQuestion() {
-    setAnswer(null);
-    submitAnswer();
-  }
+  function skipQuestion() { setAnswer(null); submitAnswer(); }
 
   return (
     <div className="screen-enter bg-white rounded-card-lg p-7 shadow-jt-sm border border-[var(--border)]">
@@ -201,7 +180,9 @@ export default function Screening() {
           <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
             Worker · Step 2 of 5
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">{TITLES[lang]}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {roleDef.emoji} {roleDef.name} screening
+          </h2>
         </div>
         <button
           onClick={() => setDemoMode((d) => !d)}
@@ -217,7 +198,6 @@ export default function Screening() {
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="flex gap-1.5 mb-6">
         {pack.questions.map((_, i) => (
           <div
@@ -230,7 +210,6 @@ export default function Screening() {
         ))}
       </div>
 
-      {/* Voice stage */}
       <div
         className="rounded-card-lg p-9 text-center border border-[var(--border)]"
         style={{ background: 'linear-gradient(135deg, #F8FAFF, #FFF6F0)' }}
@@ -241,9 +220,9 @@ export default function Screening() {
         <div className="text-2xl sm:text-[26px] font-bold text-jt-blue my-4 min-h-[70px]">
           {q.text}
         </div>
-        {lang !== 'en' && (
+        {lang !== 'en' && roleDef.i18n.en?.questions?.[qIdx] && (
           <div className="text-sm text-[var(--text-muted)] font-medium -mt-2 mb-4">
-            {i18n.en.questions[qIdx].text}
+            {roleDef.i18n.en.questions[qIdx].text}
           </div>
         )}
 
@@ -278,7 +257,6 @@ export default function Screening() {
           {transcript || 'Your answer will appear here…'}
         </div>
 
-        {/* Tap-chip alternatives */}
         <div className="flex gap-2.5 flex-wrap justify-center mt-4">
           {q.options.map((opt, i) => (
             <button

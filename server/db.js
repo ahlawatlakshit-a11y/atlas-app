@@ -80,8 +80,20 @@ export function initDb() {
     );
   `);
 
-  // Migration: add 'slot' column to existing candidates table if missing
-  try { db.exec("ALTER TABLE candidates ADD COLUMN slot TEXT"); } catch { /* column exists */ }
+  // Migrations: idempotent ALTERs for columns added after initial schema.
+  // ALTER throws if column already exists — swallow that.
+  const migrations = [
+    "ALTER TABLE candidates ADD COLUMN slot TEXT",
+    "ALTER TABLE candidates ADD COLUMN recruiter_id TEXT",
+    "ALTER TABLE candidates ADD COLUMN gps_lat REAL",
+    "ALTER TABLE candidates ADD COLUMN gps_lng REAL",
+    "ALTER TABLE candidates ADD COLUMN photo TEXT",
+    "ALTER TABLE candidates ADD COLUMN role TEXT",
+    "ALTER TABLE candidates ADD COLUMN hub TEXT",
+  ];
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* column exists */ }
+  }
 
   // Seed channels
   if (db.prepare('SELECT COUNT(*) AS n FROM channels').get().n === 0) {
@@ -96,21 +108,33 @@ export function initDb() {
     ].forEach(([k, n]) => ins.run(k, n));
   }
 
-  // Seed candidates (from prototype state.candidates)
+  // Seed candidates — spread across the 4 Jumbotail roles, 3 hubs, mix of field & online sources.
   if (db.prepare('SELECT COUNT(*) AS n FROM candidates').get().n === 0) {
     const ins = db.prepare(`
-      INSERT INTO candidates (name, phone, source, lang, age, experience_years, distance_km, score, status, slot)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO candidates
+        (name, phone, source, lang, age, experience_years, distance_km, score, status, slot, role, hub, recruiter_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     [
-      ['Suresh Reddy',  '+91 98480 12345', 'Apna',         'Telugu·EN', 28, 3, 8,  92, 'Hired',     'May 4, 11:00 AM'],
-      ['Lakshmi Devi',  '+91 98765 11122', 'WhatsApp Grp', 'Telugu',    34, 5, 12, 88, 'Offer sent','May 5, 02:00 PM'],
-      ['Anil Kumar',    '+91 99887 76655', 'WorkIndia',    'Hindi',     24, 2, 15, 81, 'Interview', 'May 6, 10:00 AM'],
-      ['Mohammed Faiz', '+91 90001 23456', 'Kirana Ref',   'Hindi·EN',  31, 4, 6,  95, 'Hired',     'May 4, 09:00 AM'],
-      ['Karthik Reddy', '+91 96543 21098', 'Vahan',        'Telugu',    22, 1, 20, 71, 'Interview', 'May 7, 11:00 AM'],
-      ['Yadav Prasad',  '+91 98123 45678', 'Apna',         'Hindi',     39, 8, 18, 86, 'Qualified', 'May 8, 03:00 PM'],
-      ['Bhavna Joshi',  '+91 99654 33221', 'QuikrJobs',    'Hindi',     29, 3, 28, 58, 'Rejected',  null],
-      ['Ravi Sharma',   '+91 97001 22334', 'WhatsApp Grp', 'Hindi',     26, 2, 11, 78, 'Qualified', 'May 7, 09:00 AM'],
+      // Van Delivery Boys
+      ['Suresh Reddy',   '+91 98480 12345', 'Field',        'Telugu·EN', 26, 3, 5,  92, 'Hired',     'May 19, 11:00 AM', 'van_delivery',     'bala_nagar', 'Priya M'],
+      ['Mohammed Faiz',  '+91 90001 23456', 'Kirana Ref',   'Hindi·EN',  31, 4, 6,  95, 'Hired',     'May 18, 09:00 AM', 'van_delivery',     'attapur',    null],
+      ['Karthik Reddy',  '+91 96543 21098', 'Vahan',        'Telugu',    24, 1, 8,  71, 'Interview', 'May 21, 11:00 AM', 'van_delivery',     'kompally',   null],
+      ['Imran Khan',     '+91 98765 99887', 'Field',        'Hindi',     28, 2, 4,  88, 'Offer sent','May 20, 10:00 AM', 'van_delivery',     'bala_nagar', 'Priya M'],
+
+      // Pickers
+      ['Lakshmi Devi',   '+91 98765 11122', 'WhatsApp Grp', 'Telugu',    34, 5, 12, 88, 'Offer sent','May 20, 02:00 PM', 'picker',           'attapur',    null],
+      ['Yadav Prasad',   '+91 98123 45678', 'Apna',         'Hindi',     39, 8, 18, 86, 'Qualified', 'May 22, 03:00 PM', 'picker',           'kompally',   null],
+      ['Anitha Rao',     '+91 99887 22334', 'Field',        'Telugu',    27, 2, 7,  82, 'Interview', 'May 21, 09:00 AM', 'picker',           'bala_nagar', 'Priya M'],
+
+      // Packers
+      ['Anil Kumar',     '+91 99887 76655', 'WorkIndia',    'Hindi',     24, 2, 15, 81, 'Interview', 'May 22, 10:00 AM', 'packer',           'attapur',    null],
+      ['Ravi Sharma',    '+91 97001 22334', 'Field',        'Hindi',     26, 2, 11, 78, 'Qualified', 'May 23, 09:00 AM', 'packer',           'bala_nagar', 'Gopal R'],
+      ['Sita Kumari',    '+91 98321 44556', 'WhatsApp Grp', 'Hindi',     33, 6, 9,  90, 'Hired',     'May 17, 02:00 PM', 'packer',           'kompally',   null],
+
+      // Warehouse Loaders
+      ['Bhavna Joshi',   '+91 99654 33221', 'QuikrJobs',    'Hindi',     29, 3, 28, 58, 'Rejected',  null,                'warehouse_loader', 'attapur',    null],
+      ['Raghu Naidu',    '+91 96321 87654', 'Field',        'Telugu',    35, 5, 6,  91, 'Hired',     'May 18, 08:00 PM', 'warehouse_loader', 'bala_nagar', 'Gopal R'],
     ].forEach((row) => ins.run(...row));
   }
 

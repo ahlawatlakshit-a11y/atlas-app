@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useFlow } from '../lib/flowStore.jsx';
 
 const roleCards = [
   {
@@ -34,18 +35,48 @@ const roleCards = [
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
+  const { state } = useFlow();
+  const { recruiterMode, recruiterId } = state;
+
   return (
     <div className="screen-enter">
-      <section className="rounded-card-lg p-12 sm:p-14 text-white relative overflow-hidden mb-7"
-               style={{ background: 'linear-gradient(135deg, var(--jt-blue) 0%, var(--jt-blue-dark) 100%)' }}>
+      {/* Field-mode banner — shown only when recruiter mode is on */}
+      {recruiterMode && (
+        <div
+          className="rounded-card-lg p-5 sm:p-6 mb-5 flex items-center justify-between gap-4 flex-wrap text-white"
+          style={{ background: 'linear-gradient(135deg, var(--accent-green), #138043)' }}
+        >
+          <div>
+            <div className="text-[11px] uppercase tracking-wider font-bold opacity-85">📍 Field recruitment mode</div>
+            <div className="text-xl sm:text-2xl font-extrabold mt-0.5">
+              Recruiting as {recruiterId || 'Field Recruiter'}
+            </div>
+            <p className="text-sm opacity-90 mt-1">
+              Sign up walk-up candidates at chowks, kirana hubs, bus stands. Each candidate is tagged with your name, GPS, and photo.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/intake')}
+            className="px-6 py-4 rounded-xl bg-white text-accent-green font-extrabold text-base shadow-lg hover:opacity-90"
+          >
+            + Sign up walk-up candidate →
+          </button>
+        </div>
+      )}
+
+      <section
+        className="rounded-card-lg p-12 sm:p-14 text-white relative overflow-hidden mb-7"
+        style={{ background: 'linear-gradient(135deg, var(--jt-blue) 0%, var(--jt-blue-dark) 100%)' }}
+      >
         <span className="inline-block px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider bg-white/15">
           Project ATLAS · v0.2 prototype
         </span>
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.1] mt-3.5 max-w-[700px]">
-          Hire warehouse workers <span className="text-jt-orange">10x faster</span>, in their own language.
+          Hire <span className="text-jt-orange">van delivery boys, pickers, packers & loaders</span> 10x faster — in their own language.
         </h1>
         <p className="mt-4 text-base sm:text-lg opacity-90 max-w-[620px]">
-          ATLAS is a voice-first AI agent that sources, screens and schedules blue-collar talent — in Hindi, English & Telugu.
+          Voice-first AI recruiting for Jumbotail's Hyderabad hubs — <strong>Bala Nagar · Attapur · Kompally</strong>. Hindi, English & Telugu. Field-recruiter mode on every phone.
         </p>
         <div className="mt-8 flex gap-9 flex-wrap">
           <Stat num="68%" label="India workforce that is blue-collar" />
@@ -61,9 +92,7 @@ export default function Home() {
             to={c.to}
             className="bg-white border-2 border-[var(--border)] rounded-card-lg p-8 transition-all hover:border-jt-orange hover:-translate-y-1 hover:shadow-jt-lg relative block"
           >
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 ${c.iconBg}`}>
-              {c.icon}
-            </div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4 ${c.iconBg}`}>{c.icon}</div>
             <h3 className="text-xl font-bold mb-2">
               {c.title}
               {c.badge && (

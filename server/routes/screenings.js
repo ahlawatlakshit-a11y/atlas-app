@@ -3,57 +3,65 @@ import { db } from '../db.js';
 
 const router = Router();
 
-// Mirrors prototype's computeScore() — 5-dimension rubric out of 100
-function scoreAnswers(a) {
-  const breakdown = [];
-  let total = 0;
+// Role dimension labels (kept in sync with client/src/lib/roleCatalog.js).
+const ROLE_DIMENSIONS = {
+  warehouse_loader: ['Age', 'Experience', 'Distance', 'Lift 25kg', 'Night shift'],
+  van_delivery:     ['Age', 'Own vehicle', 'Driving licence', 'Smartphone', 'Area familiarity'],
+  picker:           ['Age', 'SKU literacy', 'Experience', 'Stand 8 hrs', 'Day shift'],
+  packer:           ['Age', 'Packing exp', 'Lift 25kg', 'Bilingual labels', 'Day shift'],
+};
 
-  const age = a[0];
-  let agePts = 0;
-  if (typeof age === 'number') {
-    if (age >= 18 && age <= 45) agePts = 20;
-    else if (age >= 46 && age <= 50) agePts = 12;
-    else agePts = 5;
+const DIMENSION_MAX = [20, 25, 20, 20, 15];
+
+// Score a single answer against its dimension max. Handles:
+//   - number (age, exp years, distance km)
+//   - 'yes' / 'partial' / 'no'
+// Dimension index is needed because some numeric dims (age 0, distance 2)
+// have non-trivial bucketing.
+function scoreOne(value, dimIdx) {
+  const max = DIMENSION_MAX[dimIdx];
+
+  // String yes/partial/no — uniform across dims
+  if (value === 'yes')     return max;
+  if (value === 'partial') return Math.round(max / 2);
+  if (value === 'no')      return 0;
+
+  // Numeric — dimension-specific bucketing
+  if (typeof value !== 'number') return 0;
+
+  if (dimIdx === 0) {
+    // Age: ideal 18-45, partial 46-50, low otherwise
+    if (value >= 18 && value <= 45) return max;
+    if (value >= 46 && value <= 50) return Math.round(max * 0.6);
+    return Math.round(max * 0.25);
   }
-  total += agePts;
-  breakdown.push({ label: 'Age', value: age ?? null, pts: agePts, max: 20 });
-
-  const exp = a[1] ?? 0;
-  let expPts = Math.min(25, (typeof exp === 'number' ? exp : 0) * 5);
-  if (exp === 0) expPts = 5;
-  total += expPts;
-  breakdown.push({ label: 'Experience', value: exp, pts: expPts, max: 25 });
-
-  const dist = a[2];
-  let distPts = 0;
-  if (typeof dist === 'number') {
-    if (dist <= 10) distPts = 20;
-    else if (dist <= 20) distPts = 14;
-    else if (dist <= 25) distPts = 8;
-    else distPts = 2;
+  if (dimIdx === 2) {
+    // Distance to hub (km): closer is better
+    if (value <= 10) return max;
+    if (value <= 20) return Math.round(max * 0.7);
+    if (value <= 25) return Math.round(max * 0.4);
+    return Math.round(max * 0.1);
   }
-  total += distPts;
-  breakdown.push({ label: 'Distance', value: dist, pts: distPts, max: 20 });
-
-  const lift = a[3];
-  const liftPts = lift === 'yes' ? 20 : lift === 'partial' ? 10 : 0;
-  total += liftPts;
-  breakdown.push({ label: 'Lift 25kg', value: lift, pts: liftPts, max: 20 });
-
-  const shift = a[4];
-  const shiftPts = shift === 'yes' ? 15 : shift === 'partial' ? 8 : 0;
-  total += shiftPts;
-  breakdown.push({ label: 'Night shift', value: shift, pts: shiftPts, max: 15 });
-
-  return { score: total, breakdown };
+  // All other numeric: years-of-experience pattern
+  // 0 yrs = floor (5 pts), each year = +5, capped at max
+  if (value === 0) return Math.round(max * 0.2);
+  return Math.min(max, value * 5);
 }
 
 router.post('/', (req, res) => {
-  const { candidate_id, job_id, lang, answers } = req.body || {};
+  const { candidate_id, job_id, lang, answers, role } = req.body || {};
   if (!Array.isArray(answers) || answers.length !== 5) {
     return res.status(400).json({ error: 'answers must be a length-5 array' });
   }
-  const { score, breakdown } = scoreAnswers(answers);
+
+  const dimensions = ROLE_DIMENSIONS[role] || ROLE_DIMENSIONS.warehouse_loader;
+  const breakdown = answers.map((value, i) => ({
+    label: dimensions[i],
+    value: value ?? null,
+    pts: scoreOne(value, i),
+    max: DIMENSION_MAX[i],
+  }));
+  const score = breakdown.reduce((sum, b) => sum + b.pts, 0);
   const verdict = score >= 80 ? 'STRONG MATCH' : score >= 60 ? 'QUALIFIED' : 'NOT QUALIFIED';
 
   const stmt = db.prepare(`

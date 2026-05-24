@@ -4,6 +4,7 @@ import Toast from './components/Toast.jsx';
 import Home from './screens/Home.jsx';
 import JDGenerator from './screens/JDGenerator.jsx';
 import Language from './screens/Language.jsx';
+import Intake from './screens/Intake.jsx';
 import Screening from './screens/Screening.jsx';
 import Score from './screens/Score.jsx';
 import Slot from './screens/Slot.jsx';
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/jd" element={<JDGenerator />} />
           <Route path="/language" element={<Language />} />
+          <Route path="/intake" element={<Intake />} />
           <Route path="/screening" element={<Screening />} />
           <Route path="/score" element={<Score />} />
           <Route path="/slot" element={<Slot />} />
